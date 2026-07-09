@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>愤怒的猪 3D</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="rotate-hint">📱 请横屏游玩</div>
+
+        <div id="hud" class="hidden">
+            <div id="hud-left">
+                <span id="level-display">关卡: <span id="level-num">1</span></span>
+                <span id="pig-type-display">当前: <span id="pig-type">普通猪</span></span>
+                <button id="pause-btn" class="hud-btn">⏸</button>
+            </div>
+            <div id="hud-right">
+                <span id="score-display">分数: <span id="score">0</span></span>
+                <span id="pigs-display">猪: <span id="pigs-left">0</span></span>
+                <button id="camera-toggle" class="camera-btn locked" title="点击解锁相机旋转（仅装填/等待阶段可用）">🔒</button>
+            </div>
+        </div>
+
+        <div id="pig-queue" class="hidden"></div>
+        <canvas id="game-canvas"></canvas>
+        <div id="power-indicator"><div id="power-fill"></div></div>
+        <div id="ability-hint"></div>
+        <div id="skill-hint" class="hidden"></div>
+        <div id="loading-hint" class="hidden">加载中...</div>
+
+        <!-- Issue 7: 新手引导 -->
+        <div id="newbie-guide" class="hidden">
+            <div class="guide-text">👈 拖拽猪往后拉，松手发射！</div>
+        </div>
+
+        <!-- Issue 8: 暂停菜单 -->
+        <div id="pause-screen" class="overlay hidden">
+            <h2>⏸ 暂停</h2>
+            <div class="pause-volume">
+                <label>音效音量</label>
+                <input type="range" id="vol-slider" min="0" max="100" value="50">
+            </div>
+            <button id="btn-resume" class="game-btn">继续游戏</button>
+            <button id="btn-pause-restart" class="game-btn">重新开始</button>
+            <button id="btn-pause-menu" class="game-btn">返回主菜单</button>
+        </div>
+
+        <div id="menu-screen" class="overlay">
+            <h1>🐷 愤怒的猪 3D</h1>
+            <p>猪打鸟，角色互换！</p>
+            <div class="pig-types-hint">
+                <span class="hint-item">🐷 普通猪</span>
+                <span class="hint-item">💨 飞速猪（点击加速）</span>
+                <span class="hint-item">💣 炸弹猪（点击爆炸）</span>
+            </div>
+            <button id="btn-start" class="game-btn">开始游戏</button>
+            <button id="btn-levels" class="game-btn">关卡选择</button>
+        </div>
+
+        <div id="level-select-screen" class="overlay hidden">
+            <h2>选择关卡</h2>
+            <div id="level-grid"></div>
+            <button id="btn-back-menu" class="game-btn">返回</button>
+        </div>
+
+        <div id="result-screen" class="overlay hidden">
+            <h2 id="result-title"></h2>
+            <div id="result-stars"></div>
+            <div id="result-score"></div>
+            <button id="btn-next" class="game-btn">下一关</button>
+            <button id="btn-retry" class="game-btn">重试</button>
+            <button id="btn-menu" class="game-btn">主菜单</button>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+    <script src="js/levels.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/models.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
