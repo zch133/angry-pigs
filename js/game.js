@@ -307,22 +307,20 @@ function setupInput() {
     G.raycaster.ray.intersectPlane(G.plane, point);
     if (!point) return;
 
+    // 固定方向: 只允许往后拉(-x方向), z锁死为0, 跟原版一样
     const dx = point.x - SLINGSHOT_POS.x;
-    const dz = point.z - SLINGSHOT_POS.z;
-    const dist = Math.sqrt(dx*dx + dz*dz);
-    if (dist > MAX_PULL) {
-      const s = MAX_PULL / dist;
-      G.pullDir = { x: dx * s, z: dz * s };
-      G.pullDist = MAX_PULL;
-    } else {
-      G.pullDir = { x: dx, z: dz };
-      G.pullDist = dist;
-    }
-    G.pigMesh.position.x = SLINGSHOT_POS.x - G.pullDir.x;
-    G.pigMesh.position.z = SLINGSHOT_POS.z - G.pullDir.z;
+    // 只往后拉 (dx < 0), 不允许往前推
+    const pullX = Math.min(dx, 0);
+    const dist = Math.abs(pullX);
+    const clampedDist = Math.min(dist, MAX_PULL);
+    G.pullDir = { x: -clampedDist, z: 0 };
+    G.pullDist = clampedDist;
+
+    G.pigMesh.position.x = SLINGSHOT_POS.x + pullX; // pullX是负数, 往后拉
+    G.pigMesh.position.z = SLINGSHOT_POS.z;
     G.pigMesh.position.y = SLINGSHOT_POS.y;
-    document.getElementById('power-fill').style.width = (Math.min(G.pullDist / MAX_PULL, 1) * 100) + '%';
-    if (Math.random() < 0.15) Audio.stretch(G.pullDist / MAX_PULL);
+    document.getElementById('power-fill').style.width = (clampedDist / MAX_PULL * 100) + '%';
+    if (Math.random() < 0.15) Audio.stretch(clampedDist / MAX_PULL);
     updateTrajectory();
     updateSlingshotBands();
   };
@@ -420,9 +418,9 @@ function updateBandMesh(band, from, to) {
 function updateTrajectory() {
   clearTrajectory();
   const power = (G.pullDist / MAX_PULL) * LAUNCH_POWER;
-  const vx = -G.pullDir.x * LAUNCH_POWER;
-  const vy = power * 0.8;
-  const vz = -G.pullDir.z * LAUNCH_POWER;
+  const vx = LAUNCH_POWER; // 固定+x方向
+  const vy = power * 0.35;
+  const vz = 0; // z锁死
   let px = G.pigMesh.position.x, py = G.pigMesh.position.y, pz = G.pigMesh.position.z;
   let pvx = vx, pvy = vy, pvz = vz;
   const dt = 1 / 30;
@@ -451,7 +449,7 @@ function launchPig() {
   });
   body.linearDamping = 0.1;
   const power = (G.pullDist / MAX_PULL) * LAUNCH_POWER;
-  body.velocity.set(-G.pullDir.x * LAUNCH_POWER, power * 0.8, -G.pullDir.z * LAUNCH_POWER);
+  body.velocity.set(LAUNCH_POWER, power * 0.35, 0); // 固定+x方向, 降低发射角
   G.world.addBody(body);
   G.pigBody = body;
   G.pigLaunched = true;
@@ -523,6 +521,11 @@ function checkCollisions() {
     G.birds.forEach(bird => {
       if (!bird.alive || bird.falling) return;
       const bp = bird.mesh.position;
+      // 当前距离检测 (fallback)
+      const curDx = pp.x - bp.x, curDy = pp.y - bp.y, curDz = pp.z - bp.z;
+      const curDist = Math.sqrt(curDx*curDx + curDy*curDy + curDz*curDz);
+      if (curDist < hitR) { hitBird(bird); return; }
+      // 线段-球体相交检测 (防高速漏帧)
       const dx = pp.x - prev.x, dy = pp.y - prev.y, dz = pp.z - prev.z;
       const fx = prev.x - bp.x, fy = prev.y - bp.y, fz = prev.z - bp.z;
       const a = dx*dx + dy*dy + dz*dz;
