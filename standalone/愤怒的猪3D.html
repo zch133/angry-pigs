@@ -885,10 +885,33 @@ const Models = {
       transparent: type === 'ice',
       opacity: opacity[type],
       specular: type === 'ice' ? 0xFFFFFF : 0x333333,
+      flatShading: type === 'stone', // 石头用平面着色增加粗糙感
     });
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
+    mesh.userData.w = w; mesh.userData.h = h; mesh.userData.d = d;
+
+    // 木纹: 在木块表面加深色线条
+    if (type === 'wood') {
+      for (let i = 0; i < 2; i++) {
+        const line = new THREE.Mesh(
+          new THREE.BoxGeometry(w * 0.9, 0.02, d * 0.9),
+          new THREE.MeshPhongMaterial({ color: 0x8B5A2B })
+        );
+        line.position.y = (i - 0.5) * h * 0.4;
+        mesh.add(line);
+      }
+    }
+    // 冰裂纹: 在冰块表面加白色细线
+    if (type === 'ice') {
+      const crack = new THREE.Mesh(
+        new THREE.BoxGeometry(w * 0.7, 0.01, d * 0.3),
+        new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.4 })
+      );
+      crack.position.y = h * 0.2;
+      crack.rotation.y = 0.3;
+      mesh.add(crack);
+    }
+
     return mesh;
   },
 
@@ -993,9 +1016,9 @@ const EXPLOSION_RADIUS = 2.5;
 const EXPLOSION_DAMAGE_CENTER = 3;
 
 const PIG_TYPES = {
-  normal: { name: '普通猪', emoji: '🐷' },
-  speed:  { name: '飞速猪', emoji: '💨' },
-  bomb:   { name: '炸弹猪', emoji: '💣' },
+  normal: { name: '普通猪', emoji: '🐷', colorHex: 0xFFB6C1 },
+  speed:  { name: '飞速猪', emoji: '💨', colorHex: 0xFFE066 },
+  bomb:   { name: '炸弹猪', emoji: '💣', colorHex: 0x444444 },
 };
 
 // ========== 游戏状态 ==========
@@ -1055,7 +1078,19 @@ function initGame() {
   }
 
   // 弹弓
-  G.scene.add(Models.createSlingshot());
+  G.slingshot = Models.createSlingshot();
+  G.scene.add(G.slingshot);
+  // 橡皮筋: 从弹弓两叉口到猪位置, 拖拽时跟随
+  G.bandL = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.02, 0.02, 1, 6),
+    new THREE.MeshPhongMaterial({ color: 0x3B2110 })
+  );
+  G.bandR = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.02, 0.02, 1, 6),
+    new THREE.MeshPhongMaterial({ color: 0x3B2110 })
+  );
+  G.bandL.visible = false; G.bandR.visible = false;
+  G.scene.add(G.bandL); G.scene.add(G.bandR);
 
   // 物理世界
   G.world = new CANNON.World();
@@ -1273,6 +1308,7 @@ function setupInput() {
     document.getElementById('power-fill').style.width = (Math.min(G.pullDist / MAX_PULL, 1) * 100) + '%';
     if (Math.random() < 0.15) Audio.stretch(G.pullDist / MAX_PULL);
     updateTrajectory();
+    updateSlingshotBands();
   };
 
   const onUp = e => {
@@ -1280,6 +1316,12 @@ function setupInput() {
     G.isDragging = false;
     document.getElementById('power-indicator').style.display = 'none';
     clearTrajectory();
+    G.bandL.visible = false; G.bandR.visible = false;
+    // 弹弓回弹动画
+    if (G.slingshot) {
+      G.slingshot.rotation.z = 0.3;
+      setTimeout(() => { if (G.slingshot) G.slingshot.rotation.z = 0; }, 100);
+    }
     if (G.pullDist < 0.3) {
       G.pigMesh.position.set(SLINGSHOT_POS.x, SLINGSHOT_POS.y, SLINGSHOT_POS.z);
       G.pullDist = 0;
@@ -1340,6 +1382,24 @@ function setupInput() {
   });
 }
 
+// ========== 弹弓橡皮筋 ==========
+function updateSlingshotBands() {
+  if (!G.pigMesh || !G.bandL) return;
+  const forkL = new THREE.Vector3(SLINGSHOT_POS.x - 0.15, SLINGSHOT_POS.y + 0.2, 0);
+  const forkR = new THREE.Vector3(SLINGSHOT_POS.x + 0.15, SLINGSHOT_POS.y + 0.2, 0);
+  const pig = G.pigMesh.position;
+  updateBandMesh(G.bandL, forkL, pig);
+  updateBandMesh(G.bandR, forkR, pig);
+  G.bandL.visible = true; G.bandR.visible = true;
+}
+function updateBandMesh(band, from, to) {
+  const dir = new THREE.Vector3().subVectors(to, from);
+  const len = dir.length();
+  band.scale.y = len;
+  band.position.copy(from).add(to).multiplyScalar(0.5);
+  band.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+}
+
 // ========== 轨迹预测 (Issue 3) ==========
 function updateTrajectory() {
   clearTrajectory();
@@ -1386,6 +1446,7 @@ function launchPig() {
   G.cameraFollowTarget = body;
   G.flyingPigs.push({
     mesh: G.pigMesh, body, type: pd.type,
+    pigIdx: G.currentPigIndex,
     stopped: false, stopTime: 0,
     prevPos: { x: body.position.x, y: body.position.y, z: body.position.z },
     stuckFadeTimer: 0,
@@ -1426,6 +1487,11 @@ function checkCollisions() {
     if (block) {
       const speed = Math.sqrt(pig.body.velocity.x**2 + pig.body.velocity.y**2 + pig.body.velocity.z**2);
       G.hitBuildingThisFlight = true;
+      // squash & stretch: 撞击瞬间猪压扁
+      if (pig.mesh) {
+        pig.mesh.scale.set(1.3, 0.7, 1.3);
+        setTimeout(() => { if (pig.mesh) pig.mesh.scale.set(1, 1, 1); }, 100);
+      }
       damageBlock(block, speed, pig);
     }
   }
@@ -1478,16 +1544,66 @@ function destroyBlock(block) {
   block.alive = false;
   G.score += MAT_SCORE[block.type];
   spawnFloatText(block.mesh.position.x, block.mesh.position.y, block.mesh.position.z, '+' + MAT_SCORE[block.type], 0xFFFFFF);
-  // 碎片
-  for (let i = 0; i < 6; i++) {
-    const d = Models.createDebris(MAT_COLOR[block.type], 0.1 + Math.random() * 0.08);
+  
+  // 碎片: 按材质不同的数量/大小/颜色
+  const debrisCount = { ice: 8, wood: 5, stone: 4 }[block.type];
+  const debrisSize = { ice: 0.08, wood: 0.12, stone: 0.15 }[block.type];
+  for (let i = 0; i < debrisCount; i++) {
+    const d = Models.createDebris(MAT_COLOR[block.type], debrisSize + Math.random() * 0.06);
     d.position.copy(block.mesh.position);
-    d.position.x += (Math.random() - 0.5) * 0.5;
-    d.position.y += (Math.random() - 0.5) * 0.5;
-    d.position.z += (Math.random() - 0.5) * 0.5;
+    d.position.x += (Math.random() - 0.5) * block.w;
+    d.position.y += (Math.random() - 0.5) * block.h;
+    d.position.z += (Math.random() - 0.5) * block.d;
+    // 给碎片物理速度
+    d.userData.vx = (Math.random() - 0.5) * 4;
+    d.userData.vy = Math.random() * 3 + 1;
+    d.userData.vz = (Math.random() - 0.5) * 4;
+    d.userData.vrot = (Math.random() - 0.5) * 0.3;
+    d.material.transparent = block.type === 'ice';
+    d.material.opacity = block.type === 'ice' ? 0.7 : 1.0;
     G.scene.add(d);
-    setTimeout(() => { if (d.parent) G.scene.remove(d); }, 1000);
+    G.debrisPieces = G.debrisPieces || [];
+    G.debrisPieces.push(d);
   }
+  
+  // 冰碎裂额外冰碴 (小白色粒子)
+  if (block.type === 'ice') {
+    for (let i = 0; i < 6; i++) {
+      const spark = Models.createDebris(0xFFFFFF, 0.04);
+      spark.position.copy(block.mesh.position);
+      spark.position.x += (Math.random() - 0.5) * block.w;
+      spark.position.y += (Math.random() - 0.5) * block.h;
+      spark.position.z += (Math.random() - 0.5) * block.d;
+      spark.userData.vx = (Math.random() - 0.5) * 6;
+      spark.userData.vy = Math.random() * 4 + 2;
+      spark.userData.vz = (Math.random() - 0.5) * 6;
+      spark.userData.vrot = 0;
+      spark.material.transparent = true;
+      spark.material.opacity = 0.8;
+      G.scene.add(spark);
+      G.debrisPieces.push(spark);
+    }
+  }
+  
+  // 石头碎裂灰尘
+  if (block.type === 'stone') {
+    for (let i = 0; i < 4; i++) {
+      const dust = Models.createDebris(0xAAAAAA, 0.2);
+      dust.position.copy(block.mesh.position);
+      dust.position.x += (Math.random() - 0.5) * block.w;
+      dust.position.y += (Math.random() - 0.5) * block.h;
+      dust.position.z += (Math.random() - 0.5) * block.d;
+      dust.userData.vx = (Math.random() - 0.5) * 1;
+      dust.userData.vy = Math.random() * 1;
+      dust.userData.vz = (Math.random() - 0.5) * 1;
+      dust.userData.vrot = 0;
+      dust.material.transparent = true;
+      dust.material.opacity = 0.3;
+      G.scene.add(dust);
+      G.debrisPieces.push(dust);
+    }
+  }
+  
   if (block.mesh.parent) G.scene.remove(block.mesh);
   if (block.body) G.world.removeBody(block.body);
   if (block.type === 'ice') Audio.iceBreak();
@@ -1677,6 +1793,23 @@ function updateFlyingPigs(dt) {
       pig.mesh.rotation.z += dt * 0.003 * speed;
     }
 
+    // 飞行拖尾: 每隔几帧生成一个小球, 逐渐缩小消失
+    if (speed > 3 && !pig.stopped) {
+      pig.trailCounter = (pig.trailCounter || 0) + 1;
+      if (pig.trailCounter % 2 === 0) {
+        const dot = new THREE.Mesh(
+          new THREE.SphereGeometry(0.15, 6, 4),
+          new THREE.MeshBasicMaterial({ color: PIG_TYPES[G.pigQueue[pig.pigIdx]?.type || 'normal'].colorHex || 0xFFB6C1, transparent: true, opacity: 0.5 })
+        );
+        dot.position.copy(p);
+        dot.userData.life = 300;
+        dot.userData.maxLife = 300;
+        G.scene.add(dot);
+        G.trailDots = G.trailDots || [];
+        G.trailDots.push(dot);
+      }
+    }
+
     // PRD: 速度<0.1持续0.5秒 = 停止
     if (speed < 0.1) {
       pig.stopTime += dt;
@@ -1752,10 +1885,16 @@ function updateCameraPosition(angle = 0) {
 function updateCamera(dt) {
   if (G.cameraMode === 'follow' && G.cameraFollowTarget) {
     const p = G.cameraFollowTarget.position;
+    const v = G.cameraFollowTarget.velocity;
     G.cameraTarget = { x: p.x, y: p.y, z: p.z };
+    // 前瞻: 相机看向猪速度方向前方一点
+    const lookAhead = 2;
+    const lookX = p.x + v.x * lookAhead * 0.1;
+    const lookY = p.y + v.y * lookAhead * 0.1;
+    const lookZ = p.z + v.z * lookAhead * 0.1;
     const targetPos = new THREE.Vector3(p.x + 6, p.y + 3, p.z + 6);
-    G.camera.position.lerp(targetPos, 0.08);
-    G.camera.lookAt(p.x, p.y, p.z);
+    G.camera.position.lerp(targetPos, 0.12); // 从0.08提到0.12, 更快跟上
+    G.camera.lookAt(lookX, lookY, lookZ);
   } else if (G.cameraMode === 'returning') {
     G.cameraReturnTimer -= dt;
     const targetPos = new THREE.Vector3(10, 6, 10);
@@ -2103,6 +2242,44 @@ function animate(time) {
   if (G.pigMesh && !G.pigLaunched) {
     G.pigMesh.rotation.y = Math.sin(time * 0.002) * 0.15;
     G.pigMesh.position.y = SLINGSHOT_POS.y + Math.sin(time * 0.003) * 0.03;
+  }
+
+  // 拖尾粒子更新
+  if (G.trailDots && G.trailDots.length > 0) {
+    for (let i = G.trailDots.length - 1; i >= 0; i--) {
+      const d = G.trailDots[i];
+      d.userData.life -= dt;
+      const t = d.userData.life / d.userData.maxLife;
+      d.scale.setScalar(Math.max(0.01, t));
+      d.material.opacity = t * 0.5;
+      if (d.userData.life <= 0) { G.scene.remove(d); G.trailDots.splice(i, 1); }
+    }
+  }
+
+  // 碎片物理更新
+  if (G.debrisPieces && G.debrisPieces.length > 0) {
+    const ddt = dt * 0.001;
+    for (let i = G.debrisPieces.length - 1; i >= 0; i--) {
+      const d = G.debrisPieces[i];
+      d.userData.vy += GRAVITY * ddt;
+      d.position.x += d.userData.vx * ddt;
+      d.position.y += d.userData.vy * ddt;
+      d.position.z += d.userData.vz * ddt;
+      d.rotation.x += d.userData.vrot;
+      d.rotation.z += d.userData.vrot * 0.7;
+      if (d.position.y < 0) {
+        d.position.y = 0;
+        d.userData.vy *= -0.3;
+        d.userData.vx *= 0.5;
+        d.userData.vz *= 0.5;
+      }
+      // 2秒后消失
+      d.userData.life = (d.userData.life || 2000) - dt;
+      if (d.userData.life <= 0) {
+        G.scene.remove(d);
+        G.debrisPieces.splice(i, 1);
+      }
+    }
   }
 
   G.renderer.render(G.scene, G.camera);

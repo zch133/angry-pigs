@@ -205,10 +205,33 @@ const Models = {
       transparent: type === 'ice',
       opacity: opacity[type],
       specular: type === 'ice' ? 0xFFFFFF : 0x333333,
+      flatShading: type === 'stone', // 石头用平面着色增加粗糙感
     });
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
+    mesh.userData.w = w; mesh.userData.h = h; mesh.userData.d = d;
+
+    // 木纹: 在木块表面加深色线条
+    if (type === 'wood') {
+      for (let i = 0; i < 2; i++) {
+        const line = new THREE.Mesh(
+          new THREE.BoxGeometry(w * 0.9, 0.02, d * 0.9),
+          new THREE.MeshPhongMaterial({ color: 0x8B5A2B })
+        );
+        line.position.y = (i - 0.5) * h * 0.4;
+        mesh.add(line);
+      }
+    }
+    // 冰裂纹: 在冰块表面加白色细线
+    if (type === 'ice') {
+      const crack = new THREE.Mesh(
+        new THREE.BoxGeometry(w * 0.7, 0.01, d * 0.3),
+        new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.4 })
+      );
+      crack.position.y = h * 0.2;
+      crack.rotation.y = 0.3;
+      mesh.add(crack);
+    }
+
     return mesh;
   },
 
