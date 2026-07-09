@@ -68,22 +68,16 @@ function initGame() {
   G.scene.fog = new THREE.Fog(0x87CEEB, 30, 60);
 
   G.camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
-  G.renderer = new THREE.WebGLRenderer({ canvas: G.canvas, antialias: true });
+  G.renderer = new THREE.WebGLRenderer({ canvas: G.canvas, antialias: false });
   G.renderer.setSize(window.innerWidth, window.innerHeight);
-  G.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  G.renderer.shadowMap.enabled = true;
-  G.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  G.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  G.renderer.shadowMap.enabled = false; // 移动端关闭阴影提升性能
 
   // 灯光
   const ambient = new THREE.AmbientLight(0xffffff, 0.6);
   G.scene.add(ambient);
   const sun = new THREE.DirectionalLight(0xffffff, 0.8);
   sun.position.set(-10, 20, 10);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
-  sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 50;
-  sun.shadow.camera.left = -20; sun.shadow.camera.right = 20;
-  sun.shadow.camera.top = 20; sun.shadow.camera.bottom = -20;
   G.scene.add(sun);
 
   // 天空 + 地面 + 装饰
@@ -186,23 +180,16 @@ function loadLevel(idx) {
     G.hills.push({ mesh, body });
   });
 
-  // PRD 7.2: 物理预演算 (Issue 4) — 1秒不渲染，让建筑settle
+  // PRD 7.2: 物理预演算 (Issue 4) — 同步循环让建筑settle，不占渲染帧
   G.preSimulating = true;
   document.getElementById('loading-hint').classList.remove('hidden');
-  const simStart = performance.now();
-  const simStep = () => {
-    if (performance.now() - simStart < 1000) {
-      G.world.step(1 / 60);
-      G.blocks.forEach(b => { b.mesh.position.copy(b.body.position); b.mesh.quaternion.copy(b.body.quaternion); });
-      requestAnimationFrame(simStep);
-    } else {
-      G.blocks.forEach(b => { b.mesh.position.copy(b.body.position); b.mesh.quaternion.copy(b.body.quaternion); });
-      G.preSimulating = false;
-      document.getElementById('loading-hint').classList.add('hidden');
-      loadNextPig();
-    }
-  };
-  simStep();
+  for (let i = 0; i < 60; i++) {
+    G.world.step(1 / 60);
+  }
+  G.blocks.forEach(b => { b.mesh.position.copy(b.body.position); b.mesh.quaternion.copy(b.body.quaternion); });
+  G.preSimulating = false;
+  document.getElementById('loading-hint').classList.add('hidden');
+  loadNextPig();
 }
 
 function clearLevel() {
