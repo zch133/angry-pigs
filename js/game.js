@@ -334,13 +334,16 @@ function setupInput() {
   canvas.addEventListener('touchmove', onMove, { passive: false });
   canvas.addEventListener('touchend', onUp);
 
-  // PRD 5.4: 相机手动操作 (仅装填/等待阶段, 右键拖拽)
+  // PRD 5.4: 相机手动操作 (仅装填/等待阶段)
+  // 解锁后: 左键拖拽旋转, 滚轮缩放; 手机: 单指拖拽
   let camDrag = false, camLastX = 0, camLastY = 0, camAngle = 0;
   const canCam = () => !G.cameraLocked && G.state === 'playing' && !G.paused && !G.pigLaunched && !G.isDragging && !G.preSimulating;
 
   canvas.addEventListener('contextmenu', e => e.preventDefault());
+  
+  // 鼠标拖拽旋转 (左键, 需先解锁相机)
   canvas.addEventListener('mousedown', e => {
-    if (e.button === 2 && canCam()) { camDrag = true; camLastX = e.clientX; camLastY = e.clientY; e.preventDefault(); }
+    if (e.button === 0 && canCam()) { camDrag = true; camLastX = e.clientX; camLastY = e.clientY; e.preventDefault(); }
   });
   canvas.addEventListener('mousemove', e => {
     if (!camDrag || !canCam()) return;
@@ -348,13 +351,26 @@ function setupInput() {
     camLastX = e.clientX; camLastY = e.clientY;
     updateCameraPosition(camAngle);
   });
-  canvas.addEventListener('mouseup', e => { if (e.button === 2) camDrag = false; });
+  canvas.addEventListener('mouseup', e => { camDrag = false; });
   canvas.addEventListener('wheel', e => {
     if (!canCam()) return;
     const dist = G.camera.position.length();
     const newDist = Math.max(8, Math.min(30, dist + e.deltaY * 0.02));
     G.camera.position.normalize().multiplyScalar(newDist);
   });
+
+  // 触摸: 单指拖拽旋转 (需先解锁相机)
+  let camTouchDrag = false, camTouchX = 0;
+  canvas.addEventListener('touchstart', e => {
+    if (e.touches.length === 1 && canCam()) { camTouchDrag = true; camTouchX = e.touches[0].clientX; }
+  }, { passive: true });
+  canvas.addEventListener('touchmove', e => {
+    if (!camTouchDrag || !canCam()) return;
+    camAngle += (e.touches[0].clientX - camTouchX) * 0.01;
+    camTouchX = e.touches[0].clientX;
+    updateCameraPosition(camAngle);
+  }, { passive: true });
+  canvas.addEventListener('touchend', () => { camTouchDrag = false; });
 
   window.addEventListener('resize', () => {
     G.camera.aspect = window.innerWidth / window.innerHeight;
@@ -761,9 +777,9 @@ function endTurn() {
 // ========== 相机 (Issue 4) ==========
 function updateCameraPosition(angle = 0) {
   const target = G.cameraTarget || { x: 6, y: 1, z: 0 };
-  const dist = G.camera.position.length() || 18;
-  const height = 10;
-  const r = dist * 0.8;
+  const dist = G.camera.position.length() || 14;
+  const height = 6;
+  const r = dist * 0.7;
   G.camera.position.set(
     target.x + r * Math.cos(angle),
     height,
@@ -776,12 +792,12 @@ function updateCamera(dt) {
   if (G.cameraMode === 'follow' && G.cameraFollowTarget) {
     const p = G.cameraFollowTarget.position;
     G.cameraTarget = { x: p.x, y: p.y, z: p.z };
-    const targetPos = new THREE.Vector3(p.x + 8, p.y + 5, p.z + 8);
+    const targetPos = new THREE.Vector3(p.x + 6, p.y + 3, p.z + 6);
     G.camera.position.lerp(targetPos, 0.08);
     G.camera.lookAt(p.x, p.y, p.z);
   } else if (G.cameraMode === 'returning') {
     G.cameraReturnTimer -= dt;
-    const targetPos = new THREE.Vector3(14, 10, 13);
+    const targetPos = new THREE.Vector3(10, 6, 10);
     G.camera.position.lerp(targetPos, 0.05);
     G.camera.lookAt(6, 1, 0);
     if (G.cameraReturnTimer <= 0) {
@@ -790,7 +806,7 @@ function updateCamera(dt) {
       updateCameraLockButton();
     }
   } else {
-    const targetPos = new THREE.Vector3(14, 10, 13);
+    const targetPos = new THREE.Vector3(10, 6, 10);
     G.camera.position.lerp(targetPos, 0.05);
     G.camera.lookAt(6, 1, 0);
   }
