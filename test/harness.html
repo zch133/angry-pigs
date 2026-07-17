@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>harness - 愤怒的猪 3D</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    #log { position: fixed; right: 6px; top: 60px; z-index: 200; background: rgba(0,0,0,0.72); color: #0f0;
+           font: 11px/1.45 monospace; padding: 8px; max-width: 46vw; max-height: 80vh; overflow: auto; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <div id="rotate-hint" class="hidden">📱 请横屏游玩</div>
+    <div id="loading-hint" class="hidden">物理引擎预演算中…</div>
+    <div id="hud" class="hidden">
+      <div id="hud-left">
+        <span class="hud-chip">关卡 <b id="level-num">1</b></span>
+        <span class="hud-chip">当前 <b id="pig-type">普通猪</b></span>
+        <button id="pause-btn" class="hud-btn">⏸</button>
+      </div>
+      <div id="hud-right">
+        <span class="hud-chip">分数 <b id="score">0</b></span>
+        <span class="hud-chip">猪 <b id="pigs-left">0</b></span>
+        <button id="camera-toggle" class="hud-btn locked">🔒</button>
+      </div>
+    </div>
+    <div id="pig-queue" class="hidden"></div>
+    <canvas id="game-canvas"></canvas>
+    <div id="power-indicator"><div id="power-fill"></div></div>
+    <div id="combo-text"></div>
+    <div id="skill-hint"></div>
+    <div id="guide-hint" class="hidden"><div class="guide-finger">👆</div><div class="guide-text">按住猪往后拉，松手发射！</div></div>
+    <div id="menu-screen" class="overlay">
+      <div class="menu-card">
+        <h1>🐷 愤怒的猪 <span class="ver">3D</span></h1>
+        <p class="tagline">harness</p>
+        <div class="pig-types-hint"><span>🐷 普通猪</span><span>💨 飞速猪</span><span>💣 炸弹猪</span></div>
+        <button id="btn-start" class="game-btn primary">▶ 开始游戏</button>
+        <button id="btn-levels" class="game-btn">🗺 关卡选择</button>
+        <p class="copyright">test</p>
+      </div>
+    </div>
+    <div id="level-select-screen" class="overlay hidden">
+      <div class="panel wide">
+        <h2>选择关卡</h2>
+        <div id="map-tabs"></div>
+        <div id="level-grid"></div>
+        <button id="btn-back-menu" class="game-btn">返回</button>
+      </div>
+    </div>
+    <div id="pause-screen" class="overlay hidden">
+      <div class="panel">
+        <h2>⏸ 暂停</h2>
+        <div class="pause-volume"><label>🔊 音效音量</label><input type="range" id="volume-slider" min="0" max="100" value="50"></div>
+        <button id="btn-resume" class="game-btn primary">继续游戏</button>
+        <button id="btn-restart" class="game-btn">重新开始</button>
+        <button id="btn-pause-menu" class="game-btn">返回主菜单</button>
+      </div>
+    </div>
+    <div id="result-screen" class="overlay hidden">
+      <div class="panel">
+        <h2 id="result-title"></h2>
+        <div id="result-stars"></div>
+        <div id="result-score"></div>
+        <button id="btn-next" class="game-btn primary">下一关 ▶</button>
+        <button id="btn-retry" class="game-btn">重试</button>
+        <button id="btn-menu" class="game-btn">主菜单</button>
+      </div>
+    </div>
+  </div>
+  <pre id="log">harness boot…</pre>
+
+  <script src="../standalone/three.min.js"></script>
+  <script src="../standalone/cannon.min.js"></script>
+  <script src="../js/config.js"></script>
+  <script src="../js/levels.js"></script>
+  <script src="../js/models.js"></script>
+  <script src="../js/audio.js"></script>
+  <script src="../js/game.js"></script>
+  <script>
+    // ===== 自动化测试驱动 =====
+    const Q = new URLSearchParams(location.search);
+    const LEVEL = parseInt(Q.get('level') || '0', 10);
+    const MAX_SHOTS = parseInt(Q.get('shots') || '3', 10);
+    const PULLS = (Q.get('pulls') || '-1.6,-1.1,0').split(';').map(s => s.split(',').map(Number));
+    const logEl = document.getElementById('log');
+    const lines = [];
+    function log(...a) {
+      lines.push(a.map(x => typeof x === 'object' ? JSON.stringify(x) : String(x)).join(' '));
+      if (lines.length > 60) lines.shift();
+      logEl.textContent = lines.join('\n');
+    }
+    window.addEventListener('error', e => log('JS-ERROR:', e.message, (e.filename||'').split('/').pop() + ':' + e.lineno));
+
+    let fired = 0, ticks = 0, lastPhase = '';
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        if (!window.__game) { log('FATAL: __game 未定义（缺 debug=1）'); return; }
+        log('harness start level=', LEVEL, 'pulls=', JSON.stringify(PULLS));
+        window.__game.start(LEVEL);
+        if (Q.get('aim')) { // 摆拍瞄准
+          const a = Q.get('aim').split(',').map(Number);
+          setTimeout(() => { window.__game.aim(a[0], a[1], a[2] || 0); log('AIM pose', Q.get('aim')); }, 1200);
+        }
+      }, 600);
+      setInterval(() => {
+        if (!window.__game) return;
+        ticks++;
+        const g = window.__game.G;
+        const st = window.__game.state();
+        const cam = g.camera ? g.camera.position : {x:0,y:0,z:0};
+        if (st.phase !== lastPhase || ticks % 8 === 0) {
+          log(`t=${(ticks*0.25).toFixed(1)}s phase=${st.phase} score=${st.score} 鸟=${st.birdsHit}/${st.totalBirds} 猪序=${st.pigIndex}/${st.pigs} cam=(${cam.x.toFixed(1)},${cam.y.toFixed(1)},${cam.z.toFixed(1)}) mode=${g.camMode}`);
+          lastPhase = st.phase;
+        }
+        if (st.state === 'result') { log('RESULT:', JSON.stringify(g.result)); return; }
+        if (st.phase === 'ready' && fired < MAX_SHOTS) {
+          const pull = PULLS[Math.min(fired, PULLS.length - 1)];
+          fired++;
+          log('SHOOT#' + fired, JSON.stringify(pull), 'pig=', st.pigIndex);
+          window.__game.shoot(pull[0], pull[1], pull[2] || 0);
+          // 技能猪：快进后触发技能
+          const curType = g.pigQueue[st.pigIndex] && g.pigQueue[st.pigIndex].type;
+          if (curType === 'speed') { window.__game.ff(0.6); window.__game.ability(); }
+          if (curType === 'bomb') { window.__game.ff(0.8); window.__game.ability(); }
+        }
+        // 快进驱动（QA 浏览器 rAF 节流，用确定性快进代替实时等待）
+        if (st.phase === 'flying' || st.phase === 'settling' || st.phase === 'returning') window.__game.ff(0.5);
+        if (ticks > 240) { log('TIMEOUT END'); ticks = -9999; }
+      }, 250);
+    });
+  </script>
+</body>
+</html>

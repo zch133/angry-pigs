@@ -1,0 +1,36 @@
+===== verify_static v1 =====
+PASS 文件存在: index.html
+PASS 文件存在: css/style.css
+PASS 文件存在: js/config.js
+PASS 文件存在: js/levels.js
+PASS 文件存在: js/models.js
+PASS 文件存在: js/audio.js
+PASS 文件存在: js/game.js
+PASS 文件存在: standalone/three.min.js
+PASS 文件存在: standalone/cannon.min.js
+PASS 语法通过: js/config.js
+PASS 语法通过: js/levels.js
+PASS 语法通过: js/models.js
+PASS 语法通过: js/audio.js
+PASS 语法通过: js/game.js
+PASS index.html 无外链资源 (发现 0 处)
+PASS index.html 引用 vendored three.min.js
+PASS index.html 引用 vendored cannon.min.js
+PASS 禁用词扫描 0 命中 (干净)
+PASS LEVELS 数组可解析
+PASS MAPS 数组可解析
+PASS 总关卡数 >= 100 (实际 100)
+PASS 地图数 == 5 (实际 5)
+PASS 地图 grassland 关卡 >= 20 (实际 20)
+PASS 地图 desert 关卡 >= 20 (实际 20)
+PASS 地图 snow 关卡 >= 20 (实际 20)
+PASS 地图 volcano 关卡 >= 20 (实际 20)
+PASS 地图 sky 关卡 >= 20 (实际 20)
+PASS 关卡 schema 合法 (全部通过)
+PASS 地图 grassland 主题字段齐备
+PASS 地图 desert 主题字段齐备
+PASS 地图 snow 主题字段齐备
+PASS 地图 volcano 主题字段齐备
+PASS 地图 sky 主题字段齐备
+---------------------------
+===== 结果: ALL PASS | pass=33 fail=0 =====

@@ -1,0 +1,22 @@
+===== verify_static v1 =====
+PASS 文件存在: index.html
+PASS 文件存在: css/style.css
+PASS 文件存在: js/levels.js
+PASS 文件存在: js/models.js
+PASS 文件存在: js/audio.js
+PASS 文件存在: js/game.js
+PASS 文件存在: standalone/three.min.js
+PASS 文件存在: standalone/cannon.min.js
+PASS 语法通过: js/levels.js
+PASS 语法通过: js/models.js
+PASS 语法通过: js/audio.js
+PASS 语法通过: js/game.js
+PASS 禁用词扫描 0 命中 (干净)
+PASS LEVELS 数组可解析
+---------------------------
+FAIL 文件存在: js/config.js
+FAIL index.html 无外链资源 (发现 2 处: <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" | <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js")
+FAIL index.html 引用 vendored three.min.js
+FAIL index.html 引用 vendored cannon.min.js
+FAIL MAPS 数组可解析
+===== 结果: 5 FAIL | pass=14 fail=5 =====
