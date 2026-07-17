@@ -1,0 +1,4 @@
+# 20260717T171500 三门禁确认（关卡数据分块化 maps.js+chunk_0~5 后重跑，数据与 142211/150319 字节级等价）
+static:  ALL PASS | pass=43 fail=0
+physics: ALL PASS | 1435ms | 最大位移 0.108 @关75
+solver:  通过 100/100 | 平均用猪 2.40/4.40 | 总耗时 13.4s | ALL PASS
