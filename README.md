@@ -7,7 +7,7 @@
 
 ## 玩法
 
-- **拖拽**小猪向后拉 → 松手发射（有轨迹预测线与力度条）
+- **拖拽**小猪向后拉 → 松手发射（有轨迹预测线、落点提示圈与力度条；拉弓角度限制 8°~78°）
 - 全歼所有鸟即过关；用猪越少、砸得越狠，分数越高、星星越多（最高三星）
 - 飞行中**点击屏幕**触发技能猪：
   - 💨 **飞速猪**：瞬间加速 2.5 倍，贯穿一切
@@ -46,7 +46,7 @@ python3 -m http.server 8000
 ## 开发流程（模拟真实游戏公司）
 
 - `PRD.md` 产品需求文档（v3.0 范围）· `adr/` 架构决策记录 · `ISSUES.md` 问题清单 · `task_plan.md` 里程碑
-- 关卡管线：`tools/generate_levels.js`（生成）→ `tools/build_levels.js`（稳定+可解双验证，自动修复）→ `js/levels.js`
+- 关卡管线：`tools/generate_levels.js`（生成）→ `tools/build_levels.js`（稳定+可解双验证，自动修复）→ `js/maps.js` + `js/levels/chunk_0~5.js`
 - 质量门：`verifier/v1/`（静态门/物理门/可通关门），运行记录见 `verifier/runs/`
 - 自动化 QA 页：`test/harness.html`（无头驱动完整回合）
 
