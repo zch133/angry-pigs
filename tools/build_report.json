@@ -346,10 +346,10 @@
   "ok": true,
   "pigs": 5,
   "birds": 4,
-  "blocks": 13,
-  "attempt": 0,
+  "blocks": 15,
+  "attempt": 1,
   "addedPigs": 0,
-  "seedShift": 0
+  "seedShift": 101
  },
  {
   "id": 33,
@@ -809,9 +809,9 @@
   "pigs": 5,
   "birds": 4,
   "blocks": 17,
-  "attempt": 2,
+  "attempt": 0,
   "addedPigs": 0,
-  "seedShift": 202
+  "seedShift": 0
  },
  {
   "id": 75,
@@ -1061,10 +1061,10 @@
   "ok": true,
   "pigs": 5,
   "birds": 5,
-  "blocks": 12,
-  "attempt": 0,
+  "blocks": 21,
+  "attempt": 1,
   "addedPigs": 0,
-  "seedShift": 0
+  "seedShift": 101
  },
  {
   "id": 98,
