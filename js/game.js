@@ -115,6 +115,24 @@ function initGame() {
     G.trajectoryDots.push(d);
   }
 
+  // 落点标记（瞄准时的落点提示圈）
+  {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.42, 0.05, 8, 24),
+      new THREE.MeshBasicMaterial({ color: 0xFFD54F, transparent: true, opacity: 0.9, depthWrite: false })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    const dot = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 8, 6),
+      new THREE.MeshBasicMaterial({ color: 0xFFD54F, transparent: true, opacity: 0.9, depthWrite: false })
+    );
+    G.landingMarker = new THREE.Group();
+    G.landingMarker.add(ring); G.landingMarker.add(dot);
+    G.landingMarker.userData.ring = ring; G.landingMarker.userData.dot = dot;
+    G.landingMarker.visible = false;
+    G.scene.add(G.landingMarker);
+  }
+
   loadSave();
   setupInput();
   setupUI();
@@ -165,19 +183,30 @@ function applyMapTheme(map) {
     sky:       () => [Models.createCloud(0.8 + rng() * 0.8), Models.createFloatingIsland(1 + rng() * 0.8)],
   }[map.id] || (() => []);
 
+  G.fadeDecor = [];
+  const box = new THREE.Box3();
   for (let i = 0; i < 14; i++) {
     const items = decorSet();
     for (const m of items) {
-      // 避开主战区 (x: -2..30, z: -4..4)
-      let x, z, tries = 0;
-      do {
-        x = -14 + rng() * 56;
-        z = (rng() < 0.5 ? -1 : 1) * (6 + rng() * 16);
-        tries++;
-      } while (tries < 8 && x > -4 && x < 32 && Math.abs(z) < 5);
+      // 摆放分区：2/3 放背景侧(z<0)，1/3 放前景但只在两侧远处（不挡镜头走廊）
+      let x, z;
+      if (i % 3 !== 2) {
+        x = -16 + rng() * 60;
+        z = -(5 + rng() * 19);           // 背景侧
+      } else {
+        x = rng() < 0.5 ? (-18 + rng() * 8) : (34 + rng() * 12); // 前景两侧远处
+        z = 4 + rng() * 8;
+      }
       m.position.set(x, map.id === 'sky' ? 2 + rng() * 6 : 0, z);
       m.rotation.y = rng() * Math.PI * 2;
       G.scene.add(m); G.decor.push(m);
+      // 登记为可渐隐（挡视野时自动透明）
+      const mats = [];
+      m.traverse(o => { if (o.material) { o.material.transparent = true; mats.push(o.material); } });
+      box.setFromObject(m);
+      const size = box.getSize(V3(0, 0, 0));
+      const ctr = box.getCenter(V3(0, 0, 0)); // 用包围盒中心（树冠高度）而非地面原点做遮挡检测
+      G.fadeDecor.push({ group: m, materials: mats, pos: ctr, radius: Math.max(size.x, size.y, size.z) * 0.5, opacity: 1, target: 1 });
     }
   }
   // 远山
@@ -451,10 +480,19 @@ function updatePull(cx, cy) {
   if (!G.raycaster.ray.intersectPlane(G.aimPlane, pt)) return;
   const off = pt.sub(V3(C.SLINGSHOT_POS.x, C.SLINGSHOT_POS.y, C.SLINGSHOT_POS.z));
   // 只能往后拉（-x），少量上下左右
-  off.x = clamp(off.x, -C.MAX_PULL, 0.4);
+  off.x = clamp(off.x, -C.MAX_PULL, 0.2);
   off.y = clamp(off.y, -C.MAX_PULL * 0.85, C.MAX_PULL * 0.7);
-  off.z = clamp(off.z, -1.2, 1.2);
+  off.z = clamp(off.z, -C.AIM_MAX_Z, C.AIM_MAX_Z);
   if (off.length() > C.MAX_PULL) off.setLength(C.MAX_PULL);
+  // 发射角锥形限制（对齐原版：可拉方向有限）
+  if (off.x > -0.15) off.x = -0.15; // 必须明显后拉
+  const d = off.clone().negate(); // 发射方向
+  const len2d = Math.hypot(d.x, d.y);
+  let ang = Math.atan2(d.y, d.x);
+  const minA = C.AIM_MIN_DEG * Math.PI / 180, maxA = C.AIM_MAX_DEG * Math.PI / 180;
+  ang = clamp(ang, minA, maxA);
+  off.x = -Math.cos(ang) * len2d;
+  off.y = -Math.sin(ang) * len2d;
   G.pullVec = off;
   const power01 = off.length() / C.MAX_PULL;
   Audio.stretchUpdate(power01);
@@ -485,22 +523,51 @@ function setBand(mesh, a, b) {
   mesh.quaternion.setFromUnitVectors(V3(0, 1, 0), b.clone().sub(a).normalize());
 }
 
-// ========== 轨迹预测 (Issue 3) ==========
-function updateTrajectory() {
-  if (!G.pullVec) return;
+// ========== 轨迹预测 (Issue 3) + 落点提示 ==========
+function simTrajectory(maxSteps) {
+  // 与真实飞行一致的简化仿真：低重力 + 空气阻力
+  const pts = [];
   const v = G.pullVec.clone().multiplyScalar(-C.LAUNCH_POWER);
   const p = V3(C.SLINGSHOT_POS.x, C.SLINGSHOT_POS.y, C.SLINGSHOT_POS.z);
+  const gEff = C.GRAVITY * C.PIG_GRAVITY_FACTOR;
+  const drag = 1 - C.PIG_LINEAR_DAMPING * C.TRAJECTORY_DT;
+  for (let i = 0; i < maxSteps; i++) {
+    v.multiplyScalar(drag);
+    p.addScaledVector(v, C.TRAJECTORY_DT);
+    v.y += gEff * C.TRAJECTORY_DT;
+    pts.push(p.clone());
+    if (p.y <= C.PIG_RADIUS) break;
+  }
+  return pts;
+}
+function updateTrajectory() {
+  if (!G.pullVec) return;
+  const pts = simTrajectory(90);
   for (let i = 0; i < G.trajectoryDots.length; i++) {
     const d = G.trajectoryDots[i];
-    p.addScaledVector(v, C.TRAJECTORY_DT);
-    v.y += C.GRAVITY * C.TRAJECTORY_DT;
-    d.position.copy(p);
-    d.visible = p.y > 0;
-    const s = 1 - i / G.trajectoryDots.length * 0.6;
-    d.scale.setScalar(s);
+    const pi = Math.round((i + 1) / G.trajectoryDots.length * (pts.length - 1));
+    const pp = pts[Math.min(pi, pts.length - 1)];
+    d.position.copy(pp);
+    d.visible = pp.y > 0;
+    d.scale.setScalar(1 - i / G.trajectoryDots.length * 0.6);
   }
+  // 落点：先撞建筑（红）→ 否则落地点（黄）
+  let hit = null, hitBlock = false;
+  for (const pp of pts) {
+    if (pointInAnyBlockAABB(pp.x, pp.y, pp.z, 0.5)) { hit = pp; hitBlock = true; break; }
+    if (pp.y <= C.PIG_RADIUS + 0.02) { hit = pp; break; }
+  }
+  if (hit) {
+    G.landingMarker.visible = true;
+    G.landingMarker.position.set(hit.x, hitBlock ? hit.y : C.PIG_RADIUS * 0.4, hit.z);
+    G.landingMarker.userData.ring.material.color.set(hitBlock ? 0xFF5252 : 0xFFD54F);
+    G.landingMarker.userData.dot.material.color.set(hitBlock ? 0xFF5252 : 0xFFD54F);
+  } else G.landingMarker.visible = false;
 }
-function clearTrajectory() { for (const d of G.trajectoryDots) d.visible = false; }
+function clearTrajectory() {
+  for (const d of G.trajectoryDots) d.visible = false;
+  if (G.landingMarker) G.landingMarker.visible = false;
+}
 
 // ========== 发射 ==========
 function launchPig() {
@@ -516,7 +583,7 @@ function launchPig() {
   });
   body.velocity.set(vel.x, vel.y, vel.z);
   body.angularDamping = 0.3;
-  body.linearDamping = 0.01;
+  body.linearDamping = C.PIG_LINEAR_DAMPING;
   body.allowSleep = false;
   body.userData = { kind: 'pig' };
   body.addEventListener('collide', onPigCollide);
@@ -797,6 +864,7 @@ function animate(t) {
     stepGame(dt, rawDt);
   }
   updateAmbient(dt);
+  updateDecorFade(rawDt);
   updateCamera(rawDt);
   updateFloatTexts(rawDt);
   render();
@@ -839,13 +907,17 @@ function stepGame(dt, rawDt) {
     G.pigMesh.rotation.z += G.pigBody.angularVelocity.z * dt / 1000;
     const v = G.pigBody.velocity;
     const speed = v.norm();
-    // 滚动阻力：贴地低速时快速停球（cannon 球体滚动摩擦弱，原版手感是落地即停）
     const dtS = dt / 1000;
-    if (G.pigMesh.position.y < C.PIG_RADIUS + 0.08 && speed < 5) {
-      const damp = Math.max(0, 1 - 4.5 * dtS);
+    // 低重力补偿：空中停留更久（仅飞行阶段、离地时）
+    if (G.pigMesh.position.y > C.PIG_RADIUS + 0.1) {
+      v.y += -C.GRAVITY * (1 - C.PIG_GRAVITY_FACTOR) * dtS;
+    }
+    // 滚动阻力：贴地快速停球（cannon 球体滚动摩擦弱，原版手感是落地即停）
+    if (G.pigMesh.position.y < C.PIG_RADIUS + 0.08 && speed < C.ROLL_DAMP_MAX_SPEED) {
+      const damp = Math.max(0, 1 - C.ROLL_DAMP * dtS);
       v.scale(damp, v);
-      G.pigBody.angularVelocity.scale(Math.max(0, 1 - 6 * dtS), G.pigBody.angularVelocity);
-      if (speed < 0.4) { v.set(0, 0, 0); G.pigBody.angularVelocity.set(0, 0, 0); }
+      G.pigBody.angularVelocity.scale(Math.max(0, 1 - (C.ROLL_DAMP + 2) * dtS), G.pigBody.angularVelocity);
+      if (speed < C.ROLL_STOP_SPEED) { v.set(0, 0, 0); G.pigBody.angularVelocity.set(0, 0, 0); }
     }
     // 飞速猪拖尾
     if (G.speedBoostOn && Math.random() < 0.5) spawnSpeedTrail(G.pigMesh.position);
@@ -1171,6 +1243,37 @@ function updateFloatTexts(rawDt) {
   }
 }
 
+// ========== 装饰物挡视野自动透明 ==========
+let _fadeTick = 0;
+function distPointToSegment(p, a, b) {
+  const abx = b.x - a.x, aby = b.y - a.y, abz = b.z - a.z;
+  const t = clamp(((p.x - a.x) * abx + (p.y - a.y) * aby + (p.z - a.z) * abz) / (abx * abx + aby * aby + abz * abz || 1), 0, 1);
+  const cx = a.x + abx * t, cy = a.y + aby * t, cz = a.z + abz * t;
+  return Math.hypot(p.x - cx, p.y - cy, p.z - cz);
+}
+function updateDecorFade(rawDt) {
+  if (!G.fadeDecor || !G.fadeDecor.length) return;
+  _fadeTick++;
+  if (_fadeTick % 3 === 0) { // 每 3 帧重算遮挡目标
+    const camPos = G.camera.position;
+    const targets = [V3(G.levelLookX != null ? G.levelLookX : 8.5, 2, 0)];
+    if (G.pigMesh && G.phase === 'flying') targets.push(G.pigMesh.position.clone());
+    for (const d of G.fadeDecor) {
+      let occluding = false;
+      for (const t of targets) {
+        if (distPointToSegment(d.pos, camPos, t) < d.radius + 0.6) { occluding = true; break; }
+      }
+      d.target = occluding ? C.DECOR_FADE_OPACITY : 1;
+    }
+  }
+  const k = clamp(rawDt / 1000 * 7, 0, 1); // 平滑渐隐/渐现
+  for (const d of G.fadeDecor) {
+    if (Math.abs(d.opacity - d.target) < 0.01) { if (d.opacity !== d.target) { d.opacity = d.target; for (const mt of d.materials) mt.opacity = d.target; } continue; }
+    d.opacity = lerp(d.opacity, d.target, k);
+    for (const mt of d.materials) mt.opacity = d.opacity;
+  }
+}
+
 // ========== 环境动画 ==========
 function updateAmbient(dt) {
   const dtS = dt / 1000;
@@ -1191,6 +1294,11 @@ function updateAmbient(dt) {
   // 炸弹猪引线火花闪
   if (G.pigMesh && G.pigMesh.userData.spark) {
     G.pigMesh.userData.spark.visible = Math.sin(G.time * 0.03) > -0.4;
+  }
+  // 落点标记脉冲
+  if (G.landingMarker && G.landingMarker.visible) {
+    const s = 1 + Math.sin(G.time * 0.012) * 0.12;
+    G.landingMarker.scale.set(s, s, s);
   }
 }
 
@@ -1385,7 +1493,10 @@ window.addEventListener('load', () => {
       },
       ff: sec => { // 快进（测试用，脱离 rAF 节流）
         const n = Math.round(sec * 60);
-        for (let i = 0; i < n; i++) { if (G.state === 'playing' || G.state === 'result') stepGame(1000 / 60, 1000 / 60); }
+        for (let i = 0; i < n; i++) {
+          if (G.state === 'playing' || G.state === 'result') stepGame(1000 / 60, 1000 / 60);
+          updateDecorFade(1000 / 60);
+        }
         return window.__game.state();
       },
     };
