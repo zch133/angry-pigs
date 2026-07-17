@@ -75,7 +75,13 @@
   <script src="../standalone/three.min.js"></script>
   <script src="../standalone/cannon.min.js"></script>
   <script src="../js/config.js"></script>
-  <script src="../js/levels.js"></script>
+  <script src="../js/maps.js"></script>
+  <script src="../js/levels/chunk_0.js"></script>
+  <script src="../js/levels/chunk_1.js"></script>
+  <script src="../js/levels/chunk_2.js"></script>
+  <script src="../js/levels/chunk_3.js"></script>
+  <script src="../js/levels/chunk_4.js"></script>
+  <script src="../js/levels/chunk_5.js"></script>
   <script src="../js/models.js"></script>
   <script src="../js/audio.js"></script>
   <script src="../js/game.js"></script>
@@ -104,6 +110,25 @@
           const a = Q.get('aim').split(',').map(Number);
           setTimeout(() => { window.__game.aim(a[0], a[1], a[2] || 0); log('AIM pose', Q.get('aim')); }, 1200);
         }
+        if (Q.get('fadetest')) { // 渐隐链路验证：把一棵装饰移到相机→战场走廊中央
+          setTimeout(() => {
+            const g = window.__game.G;
+            const d = (g.fadeDecor || [])[0];
+            if (!d) { log('FADETEST: 无装饰'); return; }
+            const cam = g.camera.position, lookX = g.levelLookX != null ? g.levelLookX : 8.5;
+            const offY = d.pos.y - d.group.position.y; // 包围盒中心相对组原点的高度偏移
+            const mx = (cam.x + lookX) / 2, my = (cam.y + 2) / 2, mz = cam.z / 2; // 视线走廊中点
+            d.group.position.set(mx, my - offY, mz);
+            d.pos.set(mx, my, mz);
+            log(`FADETEST: 装饰移入走廊中心 (${mx.toFixed(1)},${my.toFixed(1)},${mz.toFixed(1)}) cam=(${cam.x.toFixed(1)},${cam.y.toFixed(1)},${cam.z.toFixed(1)}) lookX=${lookX.toFixed(1)} radius=${d.radius.toFixed(1)}`);
+            window.__game.ff(1.5); // 驱动渐隐（绕开 rAF 节流）
+            log(`FADETEST: ff1.5s后 opacity=${d.opacity.toFixed(3)} target=${d.target} (期望≈0.12)`);
+            // 移出走廊，验证渐现恢复
+            d.group.position.set(-40, 0, -30); d.pos.set(-40, 1, -30);
+            window.__game.ff(1.5);
+            log(`FADETEST: 移出走廊 ff1.5s后 opacity=${d.opacity.toFixed(3)} target=${d.target} (期望=1)`);
+          }, 1500);
+        }
       }, 600);
       setInterval(() => {
         if (!window.__game) return;
@@ -112,7 +137,8 @@
         const st = window.__game.state();
         const cam = g.camera ? g.camera.position : {x:0,y:0,z:0};
         if (st.phase !== lastPhase || ticks % 8 === 0) {
-          log(`t=${(ticks*0.25).toFixed(1)}s phase=${st.phase} score=${st.score} 鸟=${st.birdsHit}/${st.totalBirds} 猪序=${st.pigIndex}/${st.pigs} cam=(${cam.x.toFixed(1)},${cam.y.toFixed(1)},${cam.z.toFixed(1)}) mode=${g.camMode}`);
+          const faded = (g.fadeDecor || []).filter(d => d.opacity < 0.9).length;
+          log(`t=${(ticks*0.25).toFixed(1)}s phase=${st.phase} score=${st.score} 鸟=${st.birdsHit}/${st.totalBirds} 猪序=${st.pigIndex}/${st.pigs} cam=(${cam.x.toFixed(1)},${cam.y.toFixed(1)},${cam.z.toFixed(1)}) mode=${g.camMode} 渐隐装饰=${faded}/${(g.fadeDecor||[]).length}`);
           lastPhase = st.phase;
         }
         if (st.state === 'result') { log('RESULT:', JSON.stringify(g.result)); return; }
