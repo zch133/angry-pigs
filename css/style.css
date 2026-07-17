@@ -1,429 +1,176 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-tap-highlight-color: transparent;
-}
+/* 愤怒的猪 3D - 样式 v3.0 */
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #6BB3E0; font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif; user-select: none; -webkit-user-select: none; }
 
-html, body {
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    font-family: 'Arial', 'Helvetica', sans-serif;
-    background: #000;
-}
-
-#game-container {
-    position: relative;
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden;
-}
-
-#game-canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    touch-action: none;
-    display: block;
-}
-
-/* HUD */
-#hud {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding: 12px 16px;
-    z-index: 5;
-    pointer-events: none;
-}
-
-#hud-left, #hud-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    pointer-events: auto;
-}
-
-#hud-left span, #hud-right span {
-    color: #fff;
-    font-size: 16px;
-    font-weight: bold;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-}
-
-.hud-btn, .camera-btn {
-    background: rgba(0,0,0,0.5);
-    border: 2px solid rgba(255,255,255,0.3);
-    color: #fff;
-    font-size: 18px;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-}
-
-.hud-btn:hover, .camera-btn:hover {
-    background: rgba(255,255,255,0.2);
-    border-color: rgba(255,255,255,0.6);
-}
-
-.camera-btn.locked { opacity: 0.7; }
-.camera-btn.unlocked { background: rgba(76,175,80,0.5); border-color: #4CAF50; }
-
-/* 猪队列 */
-#pig-queue {
-    position: absolute;
-    bottom: 12px;
-    left: 16px;
-    display: flex;
-    gap: 6px;
-    z-index: 5;
-}
-
-.pig-queue-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    border: 2px solid rgba(0,0,0,0.3);
-    transition: all 0.3s;
-}
-
-.pig-queue-icon.current {
-    transform: scale(1.3);
-    border-color: #fff;
-    box-shadow: 0 0 12px rgba(255,255,255,0.5);
-}
-
-/* 覆盖层 */
-.overlay {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.7);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    z-index: 100;
-    color: #fff;
-}
-
-.overlay.hidden { display: none; }
-
-.overlay h1 {
-    font-size: 42px;
-    text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
-    margin-bottom: 8px;
-}
-
-.overlay h2 {
-    font-size: 32px;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-}
-
-.overlay p {
-    font-size: 18px;
-    color: #ccc;
-    margin-bottom: 16px;
-}
-
-/* 按钮 */
-.game-btn {
-    background: linear-gradient(135deg, #4CAF50, #2E7D32);
-    color: #fff;
-    border: none;
-    padding: 14px 36px;
-    font-size: 18px;
-    font-weight: bold;
-    border-radius: 30px;
-    cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-}
-
-.game-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.5);
-}
-
-.game-btn:active {
-    transform: scale(0.98);
-}
-
-/* 关卡选择 */
-#level-grid {
-    display: flex;
-    gap: 16px;
-    margin: 20px 0;
-}
-
-.level-card {
-    width: 80px;
-    height: 100px;
-    background: rgba(255,255,255,0.1);
-    border: 2px solid rgba(255,255,255,0.3);
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-    gap: 6px;
-}
-
-.level-card:hover {
-    background: rgba(255,255,255,0.2);
-    border-color: #4CAF50;
-    transform: scale(1.05);
-}
-
-.level-card.locked {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-
-.level-card.locked::after {
-    content: '🔒';
-    font-size: 24px;
-}
-
-.level-card.locked > * { display: none; }
-
-.level-card div:first-child {
-    font-size: 28px;
-    font-weight: bold;
-    color: #fff;
-}
-
-.level-card .stars {
-    font-size: 12px;
-}
-
-/* 结算 */
-#result-stars {
-    font-size: 36px;
-    margin: 12px 0;
-}
-
-#result-score {
-    font-size: 24px;
-    color: #FFD700;
-    margin-bottom: 8px;
-}
-
-/* 竖屏提示 */
-#rotate-hint {
-    display: none;
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: #1a1a2e;
-    color: #fff;
-    z-index: 999;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    text-align: center;
-}
-
-@media (orientation: portrait) {
-    #rotate-hint { display: flex; }
-}
-
-/* 力度条 */
-#power-indicator {
-    position: absolute;
-    bottom: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 200px;
-    height: 8px;
-    background: rgba(0,0,0,0.4);
-    border-radius: 4px;
-    overflow: hidden;
-    display: none;
-    z-index: 10;
-}
-
-#power-fill {
-    height: 100%;
-    width: 0%;
-    background: linear-gradient(90deg, #4CAF50, #FFEB3B, #F44336);
-    border-radius: 4px;
-    transition: width 0.05s;
-}
-
-/* 技能提示 */
-#ability-hint {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: #fff;
-    font-size: 24px;
-    font-weight: bold;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
-    pointer-events: none;
-    display: none;
-    z-index: 10;
-    background: rgba(0,0,0,0.5);
-    padding: 10px 25px;
-    border-radius: 20px;
-}
-
-/* 技能引导（首次使用） */
-#skill-hint {
-    position: absolute;
-    top: 60%;
-    left: 50%;
-    transform: translateX(-50%);
-    color: #FFEB3B;
-    font-size: 18px;
-    font-weight: bold;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-    pointer-events: none;
-    z-index: 10;
-    background: rgba(0,0,0,0.6);
-    padding: 8px 20px;
-    border-radius: 16px;
-    animation: pulse 1s ease-in-out infinite;
-}
-
-#skill-hint.hidden { display: none; }
-
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-}
-
-/* 连击文字 */
-#combo-text {
-    position: absolute;
-    top: 35%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 64px;
-    font-weight: bold;
-    color: #FFD700;
-    text-shadow: 4px 4px 8px rgba(0,0,0,0.9), 0 0 20px rgba(255,215,0,0.5);
-    pointer-events: none;
-    display: none;
-    z-index: 20;
-}
-
-@keyframes comboPop {
-    0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
-    30% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
-    60% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-    100% { transform: translate(-50%, -50%) scale(1) translateY(-40px); opacity: 0; }
-}
-
-/* 新手引导 */
-#guide-hint {
-    position: absolute;
-    bottom: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 10;
-    pointer-events: none;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-#guide-hint.hidden { display: none; }
-
-.guide-finger {
-    font-size: 32px;
-    animation: bounce 1.5s ease-in-out infinite;
-}
-
-.guide-text {
-    color: #fff;
-    font-size: 20px;
-    font-weight: bold;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-    background: rgba(0,0,0,0.5);
-    padding: 10px 25px;
-    border-radius: 20px;
-    animation: bounce 1.5s ease-in-out infinite;
-}
-
-@keyframes bounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
-}
-
-/* 加载提示 */
-#loading-hint {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: #fff;
-    font-size: 20px;
-    z-index: 50;
-    background: rgba(0,0,0,0.6);
-    padding: 15px 30px;
-    border-radius: 12px;
-}
-
-#loading-hint.hidden { display: none; }
-
-/* 暂停菜单 */
-#pause-screen {
-    gap: 12px;
-}
-
-.pause-volume {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
-}
-
-.pause-volume label {
-    color: #ccc;
-    font-size: 14px;
-}
-
-.pause-volume input[type="range"] {
-    width: 200px;
-}
-
-/* 猪种类提示 */
-.pig-types-hint {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-}
-
-.hint-item {
-    background: rgba(255,255,255,0.1);
-    padding: 6px 14px;
-    border-radius: 16px;
-    font-size: 14px;
-    color: #ddd;
-}
+#game-container { position: fixed; inset: 0; }
+#game-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 
 .hidden { display: none !important; }
+
+/* ===== 提示类 ===== */
+#rotate-hint {
+  position: fixed; inset: 0; z-index: 100; background: rgba(30, 40, 60, 0.96);
+  color: #fff; font-size: 28px; display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 30px;
+}
+#loading-hint {
+  position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 60;
+  background: rgba(0, 0, 0, 0.55); color: #fff; padding: 8px 18px; border-radius: 20px; font-size: 15px;
+}
+
+/* ===== HUD ===== */
+#hud {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: calc(8px + env(safe-area-inset-top)) 12px 0;
+  pointer-events: none;
+}
+#hud-left, #hud-right { display: flex; gap: 8px; align-items: center; pointer-events: auto; }
+.hud-chip {
+  background: rgba(0, 0, 0, 0.42); color: #fff; border-radius: 16px;
+  padding: 6px 12px; font-size: 14px; backdrop-filter: blur(3px);
+}
+.hud-chip b { color: #FFD54F; margin-left: 2px; }
+.hud-btn {
+  width: 38px; height: 38px; border: none; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.42); color: #fff; font-size: 17px; cursor: pointer;
+  backdrop-filter: blur(3px);
+}
+.hud-btn:active { transform: scale(0.92); }
+.hud-btn.locked { opacity: 0.85; }
+
+/* ===== 猪队列 ===== */
+#pig-queue {
+  position: fixed; left: 12px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 40;
+  display: flex; gap: 6px; background: rgba(0, 0, 0, 0.35); padding: 6px 10px; border-radius: 18px;
+}
+.pq-item { font-size: 24px; opacity: 0.9; transition: transform 0.2s, opacity 0.2s; }
+.pq-item.current { transform: scale(1.3); filter: drop-shadow(0 0 4px #FFD54F); }
+.pq-item.used { opacity: 0.25; filter: grayscale(1); }
+
+/* ===== 力度条 ===== */
+#power-indicator {
+  position: fixed; bottom: calc(14px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+  width: min(300px, 44vw); height: 14px; border-radius: 8px; z-index: 40;
+  background: rgba(0, 0, 0, 0.4); overflow: hidden; opacity: 0; transition: opacity 0.15s;
+}
+#power-fill {
+  height: 100%; width: 0; border-radius: 8px;
+  background: linear-gradient(90deg, #8BC34A, #FFC107, #F44336);
+  transition: width 0.05s linear;
+}
+
+/* ===== 飘字 / 连击 / 技能提示 ===== */
+.float-text {
+  position: fixed; z-index: 45; transform: translate(-50%, -100%);
+  font-weight: 800; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.55);
+  pointer-events: none; white-space: nowrap;
+}
+#combo-text {
+  position: fixed; top: 22%; left: 50%; transform: translate(-50%, -50%);
+  font-size: 44px; font-weight: 900; color: #FFD54F; z-index: 46;
+  text-shadow: 0 3px 0 #E65100, 0 6px 12px rgba(0, 0, 0, 0.4);
+  opacity: 0; pointer-events: none;
+}
+#combo-text.combo-pop { animation: comboPop 0.85s ease-out forwards; }
+@keyframes comboPop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+  20% { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
+  40% { transform: translate(-50%, -50%) scale(1); }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.05); }
+}
+#skill-hint {
+  position: fixed; bottom: calc(64px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.62); color: #fff; font-size: 17px; padding: 10px 20px;
+  border-radius: 22px; z-index: 46; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  border: 2px solid #FFD54F;
+}
+#skill-hint.show { opacity: 1; animation: hintPulse 1.1s ease-in-out infinite; }
+@keyframes hintPulse { 50% { transform: translateX(-50%) scale(1.05); } }
+
+/* ===== 新手引导 ===== */
+#guide-hint { position: fixed; z-index: 47; left: 24%; top: 52%; pointer-events: none; text-align: center; }
+.guide-finger { font-size: 46px; animation: guideDrag 1.4s ease-in-out infinite; }
+.guide-text {
+  background: rgba(0, 0, 0, 0.65); color: #fff; padding: 8px 16px; border-radius: 18px;
+  font-size: 16px; margin-top: 6px; border: 2px solid #fff;
+}
+@keyframes guideDrag {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-46px, 34px); }
+}
+
+/* ===== 覆盖层 ===== */
+.overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(25, 35, 55, 0.55); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.menu-card, .panel {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.97), rgba(235, 244, 255, 0.95));
+  border-radius: 22px; padding: 26px 30px; text-align: center;
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.35);
+  max-width: min(480px, 92vw); max-height: 92vh; overflow-y: auto;
+}
+.panel.wide { max-width: min(720px, 96vw); width: 100%; }
+h1 { font-size: 42px; color: #37474F; letter-spacing: 1px; }
+h1 .ver { color: #E65100; font-size: 26px; vertical-align: super; }
+h2 { color: #37474F; margin-bottom: 12px; font-size: 26px; }
+.tagline { color: #607D8B; margin: 8px 0 14px; font-size: 15px; }
+.pig-types-hint { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 18px; }
+.pig-types-hint span { background: #ECEFF1; border-radius: 14px; padding: 6px 10px; font-size: 13px; color: #455A64; }
+.copyright { margin-top: 14px; font-size: 11px; color: #90A4AE; }
+
+.game-btn {
+  display: block; width: 100%; margin: 9px 0; padding: 13px 20px;
+  font-size: 18px; font-weight: 700; color: #37474F;
+  background: #ECEFF1; border: none; border-radius: 14px; cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.12);
+}
+.game-btn:active { transform: translateY(2px); box-shadow: none; }
+.game-btn.primary { background: linear-gradient(180deg, #FFB74D, #F57C00); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+
+/* ===== 关卡选择 ===== */
+#map-tabs { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
+.map-tab {
+  border: none; border-radius: 16px; padding: 8px 14px; font-size: 15px; font-weight: 700;
+  background: #E0E0E0; color: #546E7A; cursor: pointer; transition: all 0.15s;
+}
+.map-tab.active { background: linear-gradient(180deg, #4FC3F7, #0288D1); color: #fff; box-shadow: 0 3px 8px rgba(2, 136, 209, 0.4); }
+#level-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 8px; margin-bottom: 14px; max-height: 46vh; overflow-y: auto; padding: 4px;
+}
+.level-btn {
+  aspect-ratio: 1; border: none; border-radius: 12px; cursor: pointer;
+  background: linear-gradient(180deg, #FFF, #E3F2FD);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.level-btn:active { transform: scale(0.94); }
+.level-btn:disabled { background: #ECEFF1; cursor: not-allowed; opacity: 0.55; }
+.lv-num { font-size: 19px; font-weight: 800; color: #37474F; }
+.level-btn:disabled .lv-num { color: #B0BEC5; }
+.lv-stars { font-size: 10px; color: #F9A825; letter-spacing: 1px; }
+
+/* ===== 结算 ===== */
+#result-stars { font-size: 54px; margin: 6px 0 2px; min-height: 64px; }
+.star { color: #CFD8DC; display: inline-block; margin: 0 6px; }
+.star.on { color: #F9A825; }
+.star.pop { animation: starPop 0.5s cubic-bezier(0.2, 2.2, 0.4, 1) both; }
+@keyframes starPop { 0% { transform: scale(0) rotate(-40deg); } 100% { transform: scale(1) rotate(0); } }
+#result-score { font-size: 22px; font-weight: 800; color: #455A64; margin-bottom: 14px; }
+#result-title { font-size: 28px; }
+
+/* ===== 暂停 ===== */
+.pause-volume { margin: 12px 0 16px; display: flex; align-items: center; gap: 10px; justify-content: center; color: #546E7A; }
+.pause-volume input { width: 160px; accent-color: #F57C00; }
+
+/* 小屏适配 */
+@media (max-width: 700px) {
+  h1 { font-size: 32px; }
+  .menu-card, .panel { padding: 18px 16px; }
+  .hud-chip { font-size: 12px; padding: 5px 9px; }
+  #combo-text { font-size: 34px; }
+}
