@@ -181,7 +181,7 @@ class Sim {
       position: new CANNON.Vec3(C.SLINGSHOT_POS.x, C.SLINGSHOT_POS.y, C.SLINGSHOT_POS.z),
     });
     body.velocity.set(-pull.x * C.LAUNCH_POWER, -pull.y * C.LAUNCH_POWER, -pull.z * C.LAUNCH_POWER);
-    body.angularDamping = 0.3; body.linearDamping = 0.01;
+    body.angularDamping = 0.3; body.linearDamping = C.PIG_LINEAR_DAMPING;
     body.allowSleep = false;
     let contacted = false, exploded = false, boosted = false;
     body.addEventListener('collide', () => {
@@ -215,13 +215,17 @@ class Sim {
       this.stepWorldOnly(dt, body);
       if (body.__gone) continue;
       const p = body.position;
-      // 滚动阻力（与 game.js 一致）
       const spd = body.velocity.norm();
-      if (p.y < C.PIG_RADIUS + 0.08 && spd < 5) {
-        const damp = Math.max(0, 1 - 4.5 * dt);
+      // 低重力补偿（与 game.js 一致：空中停留更久）
+      if (p.y > C.PIG_RADIUS + 0.1) {
+        body.velocity.y += -C.GRAVITY * (1 - C.PIG_GRAVITY_FACTOR) * dt;
+      }
+      // 滚动阻力（与 game.js 一致：落地快速停球）
+      if (p.y < C.PIG_RADIUS + 0.08 && spd < C.ROLL_DAMP_MAX_SPEED) {
+        const damp = Math.max(0, 1 - C.ROLL_DAMP * dt);
         body.velocity.scale(damp, body.velocity);
-        body.angularVelocity.scale(Math.max(0, 1 - 6 * dt), body.angularVelocity);
-        if (spd < 0.4) { body.velocity.set(0, 0, 0); body.angularVelocity.set(0, 0, 0); }
+        body.angularVelocity.scale(Math.max(0, 1 - (C.ROLL_DAMP + 2) * dt), body.angularVelocity);
+        if (spd < C.ROLL_STOP_SPEED) { body.velocity.set(0, 0, 0); body.angularVelocity.set(0, 0, 0); }
       }
       // 猪撞鸟
       for (const bird of this.birds) {

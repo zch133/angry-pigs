@@ -5,15 +5,18 @@ const { Sim, C } = require('./headless_sim.js');
 const SLING = C.SLINGSHOT_POS;
 const MAXV = C.MAX_PULL * C.LAUNCH_POWER; // 40
 
-// 解析弹道：从 pull 出发的抛物线与目标的最小距离
+// 解析弹道：从 pull 出发的抛物线与目标的最小距离（与游戏一致：低重力+空气阻力）
 function ballisticMinDist(pull, targets, opts = {}) {
   let vx = -pull.x * C.LAUNCH_POWER, vy = -pull.y * C.LAUNCH_POWER, vz = -pull.z * C.LAUNCH_POWER;
   let px = SLING.x, py = SLING.y, pz = SLING.z;
   const dt = 0.04;
+  const gEff = C.GRAVITY * C.PIG_GRAVITY_FACTOR;
+  const drag = 1 - C.PIG_LINEAR_DAMPING * dt;
   let best = { d: 1e9, t: 0, target: null };
-  for (let t = 0; t < 3.2; t += dt) {
+  for (let t = 0; t < 4.5; t += dt) {
+    vx *= drag; vy *= drag; vz *= drag;
     px += vx * dt; py += vy * dt; pz += vz * dt;
-    vy += C.GRAVITY * dt;
+    vy += gEff * dt;
     if (py < 0) break;
     for (const tg of targets) {
       const d = Math.hypot(px - tg.x, py - tg.y, pz - tg.z) - (tg.r || 0);
@@ -97,7 +100,7 @@ function solve(level, opts = {}) {
 module.exports = { solve };
 
 if (require.main === module) {
-  const { LEVELS } = require('../js/levels.js');
+  const { LEVELS } = require('../verifier/v1/load_levels.js');
   const idx = parseInt(process.argv[2] || '0', 10);
   const lv = LEVELS[idx];
   console.log('关卡', lv.id, lv.name, '猪:', lv.pigTypes.join(','), '鸟:', lv.birds.length, '块:', lv.blocks.length);

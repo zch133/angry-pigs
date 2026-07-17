@@ -17,9 +17,22 @@
     // ===== 弹弓 (PRD 5.x) =====
     SLINGSHOT_POS: { x: 2, y: 1.5, z: 0 },
     MAX_PULL: 2.5,
-    LAUNCH_POWER: 16,
+    LAUNCH_POWER: 15.5,
     TRAJECTORY_DOTS: 14,          // 轨迹预测点数 (Issue 3: 10-15)
     TRAJECTORY_DT: 0.05,          // 预测步长 → 覆盖约0.7秒
+    // 拉弓方向限制（对齐原版：发射角锥形范围）
+    AIM_MIN_DEG: 8,               // 最小发射角（贴地平射下限）
+    AIM_MAX_DEG: 78,              // 最大发射角（近垂直上限）
+    AIM_MAX_Z: 0.7,               // z 向偏移上限
+    // 飞行手感：猪专属低重力+空气阻力（空中停留更久）
+    PIG_GRAVITY_FACTOR: 0.75,
+    PIG_LINEAR_DAMPING: 0.05,
+    // 滚动阻力（落地快速停球）
+    ROLL_DAMP: 9,
+    ROLL_DAMP_MAX_SPEED: 6,
+    ROLL_STOP_SPEED: 0.6,
+    // 装饰物挡视野自动透明
+    DECOR_FADE_OPACITY: 0.12,
 
     // ===== 材质 (PRD 7.1 / Issue 1) =====
     MAT_HP: { ice: 1, wood: 3, stone: 6, tnt: 1 },
