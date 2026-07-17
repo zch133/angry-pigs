@@ -263,19 +263,41 @@ function generateAll(seedBase = 20260717) {
   return { MAPS, LEVELS: levels };
 }
 
+// 输出为 maps.js + 每张地图一个或多个分块（js/levels/chunk_i.js）。
+// 单分块数组文本超过 26000 字符时拆半（推送单文件有体积上限），
+// 浏览器按序引入后自动拼接 window.LEVELS；node 侧由 verifier/v1/load_levels.js 聚合。
 function emit(levels) {
-  const header = `// 愤怒的猪 3D - 关卡数据 v3.0（由 tools/generate_levels.js 生成，请勿手改）
-// 5 张主题地图 × 20 关 = 100 关；已经过无头物理验证与自动求解器校验。
-const MAPS = ${JSON.stringify(MAPS, null, 2)};
-const LEVELS = ${JSON.stringify(levels, null, 1)};
-if (typeof module !== 'undefined' && module.exports) module.exports = { MAPS, LEVELS };
+  const mapsJs = `// 愤怒的猪 3D - 地图主题数据（由 tools/generate_levels.js 生成，请勿手改）
+var MAPS = ${JSON.stringify(MAPS)};
+if (typeof module !== 'undefined' && module.exports) module.exports = MAPS;
 `;
-  return header;
+  const groups = [];
+  MAPS.forEach((m) => {
+    const chunk = levels.filter(l => l.map === m.id);
+    if (chunk.length > 1 && JSON.stringify(chunk).length > 26000) {
+      const half = Math.ceil(chunk.length / 2);
+      groups.push({ theme: m.id, lv: chunk.slice(0, half) }, { theme: m.id, lv: chunk.slice(half) });
+    } else {
+      groups.push({ theme: m.id, lv: chunk });
+    }
+  });
+  const total = groups.length;
+  const chunkJss = groups.map((g, i) => `// 愤怒的猪 3D - 关卡数据分块 ${i + 1}/${total} [${g.theme}]（由 tools/generate_levels.js 生成，请勿手改）
+var LEVELS_CHUNK_${i} = ${JSON.stringify(g.lv)};
+if (typeof window !== 'undefined') window.LEVELS = (window.LEVELS || []).concat(LEVELS_CHUNK_${i});
+if (typeof module !== 'undefined' && module.exports) module.exports = LEVELS_CHUNK_${i};
+`);
+  return { mapsJs, chunkJss };
 }
 
 if (require.main === module) {
   const { LEVELS } = generateAll();
-  require('fs').writeFileSync(require('path').join(__dirname, '../js/levels.js'), emit(LEVELS));
+  const { mapsJs, chunkJss } = emit(LEVELS);
+  const fs2 = require('fs'), path2 = require('path');
+  fs2.writeFileSync(path2.join(__dirname, '../js/maps.js'), mapsJs);
+  const chunkDir = path2.join(__dirname, '../js/levels');
+  if (!fs2.existsSync(chunkDir)) fs2.mkdirSync(chunkDir, { recursive: true });
+  chunkJss.forEach((js, i) => fs2.writeFileSync(path2.join(chunkDir, `chunk_${i}.js`), js));
   console.log(`生成 ${LEVELS.length} 关`);
 }
 module.exports = { generateAll, genLevel, MAPS, emit };
