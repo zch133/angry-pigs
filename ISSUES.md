@@ -1,6 +1,8 @@
 # Issues: 愤怒的猪 3D
 
 > 对齐 PRD v2.1，按真实游戏开发流程拆分。每个 Issue 可独立验收。
+>
+> **v3.0 状态更新（2026-07-17）**：本清单全部 Issue 已在 v3.0 重写中解决，并通过 verifier 静态门/物理门/可通关门验证（留档见 verifier/runs/）。另修复：cannon 0.6.2 碰撞回调内 removeBody 崩溃、球体落地滚动不停、预演算沉降误引爆 TNT、相机初始视角改为侧视角。详见 CHANGELOG.md。
 
 ---
 
